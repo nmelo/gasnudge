@@ -2,7 +2,7 @@ class Gn < Formula
   desc "Send nudge messages to Claude agents in tmux windows"
   homepage "https://github.com/nmelo/gasnudge"
   url "https://github.com/nmelo/gasnudge/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "PLACEHOLDER"
+  sha256 "3691917bf89e32de768e210bf200dff793519e5121961f4f2d7eab59f51eb336"
   license "MIT"
   head "https://github.com/nmelo/gasnudge.git", branch: "main"
 
