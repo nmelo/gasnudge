@@ -59,12 +59,17 @@ func runNudge(cmd *cobra.Command, args []string) error {
 
 	if tmux.IsInsideTmux() {
 		var err error
-		session, currentWindowIndex, currentPaneID, err = tmux.GetCurrentContext()
+		currentSession, currentWindowIdx, paneID, err := tmux.GetCurrentContext()
 		if err != nil {
 			return fmt.Errorf("failed to get tmux context: %w", err)
 		}
+		currentPaneID = paneID
 		if sessionFlag != "" {
 			session = sessionFlag
+			currentWindowIndex = -1 // Different session, don't exclude any window
+		} else {
+			session = currentSession
+			currentWindowIndex = currentWindowIdx
 		}
 	} else {
 		if sessionFlag == "" {
