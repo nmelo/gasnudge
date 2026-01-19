@@ -2,6 +2,8 @@
 
 CLI tool to send nudge messages to Claude agents running in tmux windows.
 
+Nudge protocol and Claude detection logic ripped straight out of [gastown](https://github.com/steveyegge/gastown).
+
 ## Installation
 
 ```bash
