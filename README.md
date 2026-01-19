@@ -53,3 +53,7 @@ gn --dry-run "test"
 Uses tmux `send-keys` with a reliable protocol: literal mode for the message, brief delays for paste completion, Escape for vim-mode safety, and Enter with retry logic.
 
 Claude detection checks `pane_current_command` for `node`, `claude`, or version patterns like `2.1.12`, plus child process inspection when the pane shows a shell.
+
+## See also
+
+[gp](https://github.com/nmelo/gaspeek) - the companion tool for reading output from tmux windows
