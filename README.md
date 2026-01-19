@@ -1,4 +1,4 @@
-# gasnudge
+# gn
 
 CLI tool to send nudge messages to Claude agents running in tmux windows.
 
@@ -7,7 +7,7 @@ Nudge protocol and Claude detection logic ripped straight out of [gastown](https
 ## Installation
 
 ```bash
-go install github.com/nmelo/gasnudge@latest
+go install github.com/nmelo/gn@latest
 ```
 
 ## Usage
@@ -15,26 +15,26 @@ go install github.com/nmelo/gasnudge@latest
 From inside tmux, nudge all other windows in the current session:
 
 ```bash
-gasnudge "continue"
+gn "continue"
 ```
 
 Nudge only windows running Claude:
 
 ```bash
-gasnudge --detect "continue"
+gn --detect "continue"
 ```
 
 Target specific windows:
 
 ```bash
-gasnudge -w editor -w build "done"
-gasnudge -p "worker-*" "update"
+gn -w editor -w build "done"
+gn -p "worker-*" "update"
 ```
 
 Preview without sending:
 
 ```bash
-gasnudge --dry-run "test"
+gn --dry-run "test"
 ```
 
 ## Flags

@@ -19,7 +19,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "gasnudge [flags] [message]",
+	Use:   "gn [flags] [message]",
 	Short: "Send nudge messages to Claude agents in tmux windows",
 	Long: `gasnudge sends messages to Claude agents running in tmux windows.
 
@@ -27,11 +27,11 @@ By default, it nudges ALL windows in the current session except the caller's win
 Use --detect to limit to only windows running Claude.
 
 Examples:
-  gasnudge "continue"                    # Nudge all windows except self
-  gasnudge --detect "continue"           # Nudge only windows running Claude
-  gasnudge -w editor -w build "done"     # Nudge specific windows
-  gasnudge -p "worker-*" "update"        # Nudge windows matching pattern
-  gasnudge --dry-run "test"              # Show what would be nudged`,
+  gn "continue"                    # Nudge all windows except self
+  gn --detect "continue"           # Nudge only windows running Claude
+  gn -w editor -w build "done"     # Nudge specific windows
+  gn -p "worker-*" "update"        # Nudge windows matching pattern
+  gn --dry-run "test"              # Show what would be nudged`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runNudge,
 }
