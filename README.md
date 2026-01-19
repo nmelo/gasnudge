@@ -64,4 +64,5 @@ Claude detection checks `pane_current_command` for `node`, `claude`, or version 
 
 ## See also
 
-[gp](https://github.com/nmelo/gaspeek) - the companion tool for reading output from tmux windows
+- [gp](https://github.com/nmelo/gaspeek) - read output from tmux windows
+- [gm](https://github.com/nmelo/gasmail) - agent-to-agent messaging via beads
