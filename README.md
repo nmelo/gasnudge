@@ -6,8 +6,16 @@ Nudge protocol and Claude detection logic ripped straight out of [gastown](https
 
 ## Installation
 
+**Homebrew:**
 ```bash
-go install github.com/nmelo/gn@latest
+brew tap nmelo/gasnudge https://github.com/nmelo/gasnudge
+brew install nmelo/gasnudge/gn
+```
+
+**Go:**
+```bash
+go install github.com/nmelo/gasnudge@latest
+mv $(go env GOPATH)/bin/gasnudge $(go env GOPATH)/bin/gn
 ```
 
 ## Usage
