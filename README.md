@@ -45,6 +45,12 @@ Preview without sending:
 gn --dry-run "test"
 ```
 
+Clear conversation before sending (sends `/clear`, confirms via peek, then sends message):
+
+```bash
+gn -c -w worker-1 "begin task"
+```
+
 ## Flags
 
 ```
@@ -53,6 +59,7 @@ gn --dry-run "test"
 -p, --pattern GLOB     Filter windows by name pattern
 -d, --detect           Only nudge windows running Claude
 -a, --all              Include current window (default: exclude self)
+-c, --clear            Send /clear first, confirm, then send message
 -n, --dry-run          Show what would be nudged
 ```
 

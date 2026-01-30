@@ -222,3 +222,13 @@ func SessionExists(session string) bool {
 	_, err := run("has-session", "-t", session)
 	return err == nil
 }
+
+// CaptureWindow captures the last N lines from a tmux window's pane.
+// Target format: "session:window" (e.g., "main:1" or "main:editor")
+func CaptureWindow(target string, lines int) (string, error) {
+	out, err := run("capture-pane", "-p", "-t", target, "-S", fmt.Sprintf("-%d", lines))
+	if err != nil {
+		return "", err
+	}
+	return out, nil
+}
