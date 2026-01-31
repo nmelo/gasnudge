@@ -18,6 +18,7 @@ var (
 	allFlag      bool
 	dryRunFlag   bool
 	clearFlag    bool
+	forceFlag    bool
 )
 
 var rootCmd = &cobra.Command{
@@ -34,6 +35,7 @@ BEHAVIOR:
   - Excludes the caller's own window (prevents self-messaging)
   - Sends Escape key to interrupt vim-mode or pending input
   - Use --detect to limit to only windows running Claude
+  - Detects pending input: if user is typing, retries 3x then skips (use --force to override)
 
 NUDGE PROTOCOL:
   1. Send message text in literal mode
@@ -63,6 +65,7 @@ EXAMPLES:
   gn -a "note to self"               # Include own window
   gn -n "test"                       # Dry-run: show targets
   gn -c -w worker-1 "fresh start"    # Clear context first, then nudge
+  gn -f -w worker-1 "urgent"         # Force send even if user is typing
 
 RELATED TOOLS:
   ga (gasadd)   - Queue messages without interrupting (no Escape)
@@ -125,6 +128,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Include current window (default: exclude self)")
 	rootCmd.Flags().BoolVarP(&dryRunFlag, "dry-run", "n", false, "Show what would be nudged")
 	rootCmd.Flags().BoolVarP(&clearFlag, "clear", "c", false, "Send /clear first, confirm, then send message")
+	rootCmd.Flags().BoolVarP(&forceFlag, "force", "f", false, "Send even if target has pending input")
 }
 
 func runNudge(cmd *cobra.Command, args []string) error {
@@ -223,9 +227,32 @@ func runNudge(cmd *cobra.Command, args []string) error {
 	}
 
 	// Execute nudges
-	var succeeded, failed int
+	var succeeded, failed, skipped int
 	for _, w := range targets {
 		target := fmt.Sprintf("%s:%d", session, w.Index)
+
+		// Check for pending input (user is typing) unless --force is set
+		if !forceFlag {
+			var hasPending bool
+			const maxRetries = 3
+			const retryDelay = 5 * time.Second
+
+			for attempt := 0; attempt < maxRetries; attempt++ {
+				hasPending, _ = tmux.HasPendingInput(target)
+				if !hasPending {
+					break
+				}
+				if attempt < maxRetries-1 {
+					time.Sleep(retryDelay)
+				}
+			}
+
+			if hasPending {
+				fmt.Fprintf(os.Stderr, "%s: destination window is busy (user is typing) - use --force if your message takes priority, or wait a few seconds and retry\n", w.Name)
+				skipped++
+				continue
+			}
+		}
 
 		// If --clear flag is set, send /clear first and confirm
 		if clearFlag {
@@ -245,13 +272,25 @@ func runNudge(cmd *cobra.Command, args []string) error {
 	}
 
 	// Report results
-	if failed > 0 {
-		fmt.Printf("Nudged %d window(s), %d failed\n", succeeded, failed)
-		return fmt.Errorf("%d nudge(s) failed", failed)
-	}
+	_ = currentPaneID // unused but kept for future use
 
-	// Don't print current pane ID in output, just use it for internal logic
-	_ = currentPaneID
+	if failed > 0 || skipped > 0 {
+		var parts []string
+		if succeeded > 0 {
+			parts = append(parts, fmt.Sprintf("nudged %d", succeeded))
+		}
+		if skipped > 0 {
+			parts = append(parts, fmt.Sprintf("%d deferred (user typing)", skipped))
+		}
+		if failed > 0 {
+			parts = append(parts, fmt.Sprintf("%d failed", failed))
+		}
+		fmt.Printf("%s\n", strings.Join(parts, ", "))
+		if failed > 0 {
+			return fmt.Errorf("%d nudge(s) failed", failed)
+		}
+		return nil
+	}
 
 	fmt.Printf("Nudged %d window(s)\n", succeeded)
 	return nil
