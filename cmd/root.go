@@ -23,18 +23,51 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "gn [flags] [message]",
 	Short: "Send nudge messages to Claude agents in tmux windows",
-	Long: `gasnudge sends messages to Claude agents running in tmux windows.
+	Long: `gasnudge (gn) sends messages to Claude agents running in tmux windows with interruption.
 
-By default, it nudges ALL windows in the current session except the caller's window.
-Use --detect to limit to only windows running Claude.
+WHEN TO USE gn vs ga:
+  gn  - Urgent: "stop now" (sends Escape to interrupt current work)
+  ga  - Non-urgent: "when you're done, run tests" (queues without interrupting)
 
-Examples:
-  gn "continue"                    # Nudge all windows except self
-  gn --detect "continue"           # Nudge only windows running Claude
-  gn -w editor -w build "done"     # Nudge specific windows
-  gn -p "worker-*" "update"        # Nudge windows matching pattern
-  gn --dry-run "test"              # Show what would be nudged
-  gn -c -w worker-1 "start"        # Clear window first, then nudge`,
+BEHAVIOR:
+  - Targets ALL windows in the current session (not Claude-only by default)
+  - Excludes the caller's own window (prevents self-messaging)
+  - Sends Escape key to interrupt vim-mode or pending input
+  - Use --detect to limit to only windows running Claude
+
+NUDGE PROTOCOL:
+  1. Send message text in literal mode
+  2. Wait 500ms for paste completion
+  3. Send Escape (interrupts any pending input or vim-mode)
+  4. Send Enter with retry logic
+
+CLAUDE DETECTION (--detect flag):
+  Identifies Claude by pane_current_command matching:
+  - "claude" or "node" (direct process)
+  - Version pattern like "2.1.25"
+  - Child processes of shells (inspects via pgrep)
+
+USE CASES FOR AGENT COORDINATION:
+  - Urgently interrupt an agent stuck in a loop
+  - Force immediate attention to a critical issue
+  - Clear and restart an agent's context
+  - Broadcast urgent messages across a swarm
+
+EXAMPLES:
+  gn "stop and check the error"      # Nudge all windows in session
+  gn --detect "urgent: check logs"   # Only windows running Claude
+  gn -w worker-1 "stop now"          # Target specific window
+  gn -w worker-1 -w worker-2 "halt"  # Multiple windows
+  gn -p "worker-*" "checkpoint"      # Glob pattern matching
+  gn -s swarm "broadcast"            # Different tmux session
+  gn -a "note to self"               # Include own window
+  gn -n "test"                       # Dry-run: show targets
+  gn -c -w worker-1 "fresh start"    # Clear context first, then nudge
+
+RELATED TOOLS:
+  ga (gasadd)   - Queue messages without interrupting (no Escape)
+  gp (gaspeek)  - Read output from agent windows
+  gm (gasmail)  - Persistent messaging via beads database`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runNudge,
 }
