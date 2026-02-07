@@ -15,6 +15,7 @@ var (
 	sessionFlag  string
 	patternFlag  string
 	detectFlag   bool
+	anyFlag      bool
 	allFlag      bool
 	dryRunFlag   bool
 	clearFlag    bool
@@ -124,7 +125,8 @@ func init() {
 	rootCmd.Flags().StringArrayVarP(&windowFlags, "window", "w", nil, "Target specific window(s) by name (repeatable)")
 	rootCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Target session (default: current)")
 	rootCmd.Flags().StringVarP(&patternFlag, "pattern", "p", "", "Filter windows by name pattern (glob-style)")
-	rootCmd.Flags().BoolVarP(&detectFlag, "detect", "d", false, "Only nudge windows running Claude")
+	rootCmd.Flags().BoolVarP(&detectFlag, "detect", "d", false, "Only nudge windows running Claude (now default, kept for compatibility)")
+	rootCmd.Flags().BoolVar(&anyFlag, "any", false, "Include non-Claude windows (default: Claude only)")
 	rootCmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Include current window (default: exclude self)")
 	rootCmd.Flags().BoolVarP(&dryRunFlag, "dry-run", "n", false, "Show what would be nudged")
 	rootCmd.Flags().BoolVarP(&clearFlag, "clear", "c", false, "Send /clear first, confirm, then send message")
@@ -227,9 +229,16 @@ func runNudge(cmd *cobra.Command, args []string) error {
 	}
 
 	// Execute nudges
-	var succeeded, failed, skipped int
+	var succeeded, failed, skippedTyping, skippedNoClaude int
 	for _, w := range targets {
 		target := fmt.Sprintf("%s:%d", session, w.Index)
+
+		// Verify Claude is running in the target window
+		if !anyFlag && !tmux.IsClaudeRunning(w) {
+			fmt.Fprintf(os.Stderr, "destination window %q has no Claude agent running - start Claude there first, or use --any to send anyway\n", w.Name)
+			skippedNoClaude++
+			continue
+		}
 
 		// Check for pending input (user is typing) unless --force is set
 		if !forceFlag {
@@ -249,7 +258,7 @@ func runNudge(cmd *cobra.Command, args []string) error {
 
 			if hasPending {
 				fmt.Fprintf(os.Stderr, "destination window %q is busy (user is typing) - use --force if your message takes priority, or wait a few seconds and retry\n", w.Name)
-				skipped++
+				skippedTyping++
 				continue
 			}
 		}
@@ -274,13 +283,17 @@ func runNudge(cmd *cobra.Command, args []string) error {
 	// Report results
 	_ = currentPaneID // unused but kept for future use
 
+	skipped := skippedTyping + skippedNoClaude
 	if failed > 0 || skipped > 0 {
 		var parts []string
 		if succeeded > 0 {
 			parts = append(parts, fmt.Sprintf("nudged %d", succeeded))
 		}
-		if skipped > 0 {
-			parts = append(parts, fmt.Sprintf("%d deferred (user typing)", skipped))
+		if skippedNoClaude > 0 {
+			parts = append(parts, fmt.Sprintf("%d skipped (no Claude)", skippedNoClaude))
+		}
+		if skippedTyping > 0 {
+			parts = append(parts, fmt.Sprintf("%d deferred (user typing)", skippedTyping))
 		}
 		if failed > 0 {
 			parts = append(parts, fmt.Sprintf("%d failed", failed))
