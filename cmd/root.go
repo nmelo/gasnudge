@@ -76,49 +76,65 @@ RELATED TOOLS:
 	RunE: runNudge,
 }
 
-func Execute() error {
+func Execute(version string) error {
+	rootCmd.Version = version
 	return rootCmd.Execute()
 }
 
-// clearAndConfirm sends /clear to a window and confirms it was processed.
-// Returns an error if the clear cannot be confirmed within the timeout.
+// clearAndConfirm interrupts any in-progress work, sends /clear, then polls
+// until Claude Code's startup screen appears confirming the clear completed.
+//
+// The previous approach used NudgeWindow("/clear") which caused two failure modes:
+//
+//   - Not executed: NudgeWindow sends Escape AFTER the text, which cancels the
+//     just-typed /clear in Claude Code's readline when the window is at an idle
+//     prompt. The Enter then submits an empty line.
+//
+//   - Mingled: a fixed 2s wait isn't enough when Claude is mid-generation;
+//     instructions sent immediately after could land while /clear is still
+//     processing and get mixed into the cleared state.
+//
+// Fix: separate the interrupt (Escape) from the command submission (SendLine),
+// and poll for the startup screen rather than using a fixed delay.
 func clearAndConfirm(target string) error {
-	// Send /clear command
-	if err := tmux.NudgeWindow(target, "/clear"); err != nil {
+	// Step 1: interrupt any in-progress generation or input so the window
+	// is in a clean state before we type /clear.
+	if err := tmux.InterruptWindow(target); err != nil {
+		return fmt.Errorf("failed to interrupt window: %w", err)
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	// Step 2: send /clear without Escape. SendLine does text + Enter only, so
+	// the command isn't cancelled before Enter can submit it.
+	if err := tmux.SendLine(target, "/clear"); err != nil {
 		return fmt.Errorf("failed to send /clear: %w", err)
 	}
 
-	// Wait for Claude to process the clear command
-	time.Sleep(2 * time.Second)
+	// Step 3: poll until Claude Code's startup screen is visible, confirming
+	// the context was wiped and Claude is ready. The startup screen shows the
+	// ASCII logo (▟█▙) immediately after /clear completes.
+	const maxWait = 10 * time.Second
+	const pollInterval = 300 * time.Millisecond
+	deadline := time.Now().Add(maxWait)
 
-	// Peek at the window output to confirm clear happened
-	output, err := tmux.CaptureWindow(target, 50)
-	if err != nil {
-		return fmt.Errorf("failed to peek after /clear: %w", err)
-	}
-
-	// Check for signs that /clear was processed:
-	// 1. The "/clear" text should NOT still be visible as pending input
-	// 2. We should see a fresh prompt or cleared state
-	// 3. Look for "Conversation cleared" or similar confirmation
-
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		// If we see "/clear" as the last thing typed (not yet submitted), it failed
-		if trimmed == "/clear" || strings.HasSuffix(trimmed, "> /clear") {
-			return fmt.Errorf("clear command appears unsubmitted")
+	for time.Now().Before(deadline) {
+		time.Sleep(pollInterval)
+		output, err := tmux.CaptureWindow(target, 30)
+		if err != nil {
+			continue
 		}
-		// Success indicators: Claude shows confirmation or fresh prompt
-		if strings.Contains(strings.ToLower(line), "cleared") ||
-			strings.Contains(line, "Conversation cleared") {
-			return nil // Confirmed cleared
+		for _, line := range strings.Split(output, "\n") {
+			t := strings.TrimSpace(line)
+			// Claude Code startup screen markers that appear after /clear
+			if strings.Contains(t, "▟█▙") ||
+				strings.Contains(t, "Claude Code") ||
+				strings.Contains(strings.ToLower(t), "conversation cleared") {
+				return nil
+			}
 		}
 	}
 
-	// If we don't see /clear pending and the output looks reasonable, assume success
-	// The absence of "/clear" text in the visible output suggests it was processed
-	return nil
+	return fmt.Errorf("/clear did not complete within %s", maxWait)
 }
 
 func init() {
