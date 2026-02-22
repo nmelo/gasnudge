@@ -27,7 +27,8 @@ release:
   prerelease: auto
 
 brews:
-  - repository:
+  - name: gn
+    repository:
       owner: nmelo
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
