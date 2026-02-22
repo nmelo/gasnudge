@@ -108,6 +108,31 @@ func IsInsideTmux() bool {
 	return os.Getenv("TMUX_PANE") != ""
 }
 
+// InterruptWindow sends Escape to a window to cancel any in-progress input or
+// generation. Safe to call when the window is at an idle prompt (no-op there).
+// Use before SendLine when you need to ensure the window is in a clean state.
+func InterruptWindow(target string) error {
+	ExitCopyMode(target)
+	_, err := run("send-keys", "-t", target, "Escape")
+	return err
+}
+
+// SendLine sends a short line of text followed by Enter, without the Escape
+// interrupt. Use for slash-commands like /clear that must not be cancelled.
+// Unlike NudgeWindow, this does NOT send Escape, so already-typed text is
+// preserved rather than discarded.
+func SendLine(target, text string) error {
+	ExitCopyMode(target)
+	if _, err := run("send-keys", "-t", target, "-l", text); err != nil {
+		return err
+	}
+	time.Sleep(100 * time.Millisecond)
+	if _, err := run("send-keys", "-t", target, "Enter"); err != nil {
+		return fmt.Errorf("failed to send Enter: %w", err)
+	}
+	return nil
+}
+
 // NudgeWindow sends a message to a tmux window using the proven gastown protocol.
 // Target format: "session:window" (e.g., "main:1" or "main:editor")
 func NudgeWindow(target, message string) error {
